@@ -1,0 +1,673 @@
+openapi: 3.0.0
+info:
+  title: Science Data Transfer Protocol (SDTP)
+  description: |
+    A reliable mechanism to transfer files between Science Data Providers
+    and Subscribers.
+
+  version: "1.0"
+
+servers:
+  - url: https://{server}/sdtp/{version}
+    description: Base path for SDTP
+    variables:
+      server:
+        description: SDTP server
+        default: sdtp
+      version:
+        description: Protocol version
+        enum:
+          - v1
+        default: v1
+
+components:
+  schemas:
+    filelist:
+      type: object
+      required:
+        - files
+      properties:
+        files:
+          type: array
+          items:
+            type: object
+            required:
+              - fileid
+              - name
+              - checksum
+              - size
+              - expires
+            properties:
+              fileid:
+                type: integer
+                example: 27
+              name:
+                type: string
+                example: file.txt
+              checksum:
+                type: string
+                example: md5:d41d8cd98f00b204e9800998ecf8427e
+              size:
+                type: integer
+                format: int64
+                minimum: 0
+                example: 5678
+              expires:
+                type: string
+                format: date
+              extra:
+                example:
+                  arbitrary: json stuff
+              tags:
+                type: object
+                additionalProperties:
+                  type: string
+                example:
+                  stream: prod
+                  ShortName: INS02A
+                  Version: "061"
+    upload-list:
+      type: object
+      required:
+        - files
+      properties:
+        files:
+          type: array
+          items:
+            type: object
+            required:
+              - name
+              - checksum
+              - size
+              - location
+            properties:
+              name:
+                type: string
+                example: file.txt
+              checksum:
+                type: string
+                example: md5:d41d8cd98f00b204e9800998ecf8427e
+              size:
+                type: integer
+                format: int64
+                minimum: 0
+                example: 5678
+              location:
+                type: string
+                example: http://some.where/something/file.txt
+              extra:
+                example:
+                  arbitrary: json stuff
+              tags:
+                type: object
+                additionalProperties:
+                  type: string
+                example:
+                  stream: prod
+                  ShortName: INS02A
+                  Version: "061"
+              callback:
+                type: string
+                example: http://some.url/to/call
+    accountList:
+      type: object
+      required:
+        - accounts
+      properties:
+        accounts:
+          type: array
+          items:
+            type: object
+            required:
+              - username
+              - role
+              - uid
+            properties:
+              username:
+                type: string
+                example: myUser
+              role:
+                type: string
+                example: provider
+              uid:
+                type: integer
+                example: 13
+    accountSubscriptions:
+      type: object
+      additionalProperties:
+        type: object
+        properties:
+          key:
+            type: string
+      example:
+        87462a7e-0474-4dfe-b31c-d0596670e0d3:
+          stream: prod
+          shortName: INS02A
+          version: "061"
+    pendingAccounts:
+      type: object
+      required:
+        - accounts
+      properties:
+        accounts:
+          type: array
+          items:
+            type: object
+            required:
+              - username
+              - uid
+            properties:
+              username:
+                type: string
+                example: myUser
+              uid:
+                type: integer
+                example: 22
+
+  headers:
+    SDTP-TransactionID:
+      description: Unique ID used for out-of-band communication, such as troubleshooting via EMail
+      schema:
+        type: string
+        format: uuid
+    Location:
+      description: The actual URL for the file content.
+      schema:
+        type: string
+        format: uri
+  parameters:
+    impersonate:
+      name: SDTP-Impersonate-User
+      in: header
+      description: User ID of the User this request should run as instead of the authenticated user. Only valid if authenticated user is an administrator
+      schema:
+        type: integer
+    authenticate:
+      name: Cert-UID
+      in: header
+      description: The validated client certificate DN.
+      schema:
+        type: string
+      required: true
+  responses:
+    Forbidden:
+      description: Request is authenticated but user is forbidden from accessing resource
+      headers:
+        SDTP-TransactionID:
+          $ref: '#/components/headers/SDTP-TransactionID'
+    Unauthorized:
+      description: Request is not authenticated
+      headers:
+        SDTP-TransactionID:
+          $ref: "#/components/headers/SDTP-TransactionID"
+    Unavailable:
+      description: Request is not available
+      headers:
+        SDTP-TransactionID:
+          $ref: "#/components/headers/SDTP-TransactionID"
+    BadRequest:
+      description: The request is incorrect
+      headers:
+        SDTP-TransactionID:
+          $ref: "#/components/headers/SDTP-TransactionID"
+    NotFound:
+      description: The requested resource does not exist
+      headers:
+        SDTP-TransactionID:
+          $ref: "#/components/headers/SDTP-TransactionID"
+    NoResponse:
+      description: Success but no other response necessary
+      headers:
+        SDTP-TransactionID:
+          $ref: "#/components/headers/SDTP-TransactionID"
+    Redirect:
+      description: File is available in another location
+      headers:
+        SDTP-TransactionID:
+          $ref: "#/components/headers/SDTP-TransactionID"
+        Location:
+          $ref: "#/components/headers/Location"
+    PayloadTooLarge:
+      description: Request body exceeds allowable size
+      headers:
+        SDTP-TransactionID:
+          $ref: "#/components/headers/SDTP-TransactionID"
+    UnsupportedMediaType:
+      description: The specified `Content-Encoding` is not acceptable
+      headers:
+        SDTP-TransactionID:
+          $ref: "#/components/headers/SDTP-TransactionID"
+
+paths:
+  /files:
+    get:
+      summary: Get a list of files ready for retrieval
+      tags:
+        - General
+      parameters:
+        - $ref: '#/components/parameters/authenticate'
+        - $ref: '#/components/parameters/impersonate'
+        - in: query
+          name: maxfile
+          description: Limit how many files can be returned for this request.  This value cannot exceed the maximum number of files defined in the configuration.
+          schema:
+            type: integer
+        - in: query
+          name: startfileid
+          description: Only returns files with file ids greater than startfileid
+          schema:
+            type: integer
+        - in: query
+          name: tags
+          description: Restrict results to only files that include all provided tags
+          schema:
+            type: object
+            additionalProperties:
+              type: string
+          style: form
+          explode: true
+      responses:
+        '200':
+          description: A JSON object of files ready for retrieval
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/filelist"
+          headers:
+            SDTP-TransactionID:
+              $ref: "#/components/headers/SDTP-TransactionID"
+        '401':
+          $ref: "#/components/responses/Unauthorized"
+        '403':
+          $ref: "#/components/responses/Forbidden"
+    put:
+      summary: Push a list of files ready for retrieval
+      tags:
+        - Admin
+      parameters:
+        - $ref: '#/components/parameters/authenticate'
+        - $ref: '#/components/parameters/impersonate'
+      requestBody:
+        description: |
+          The payload of this request is an object containing a list of files. Each
+          file will have certain required parameters and certain optional ones.
+          **Required Parameters**:
+          * name
+          * checksum
+          * size
+          * location
+
+          **Optional Parameters**:
+          * extra
+          * tags
+          * callback
+
+          All fields, with the exception of the `callback` and `location` field, are sent
+          to subscribers. The `location` field is interpreted prior to sending to the user.
+          The `location` is interpreted as follows:
+            * If the location starts with `nginx://` then on file request SDTP returns an empty
+              response with the headers for [nginx XSendfile](https://www.nginx.com/resources/wiki/start/topics/examples/xsendfile/)
+            * If the location starts with `apache://` then on file request SDTP returns an empty
+              response with the headers for [apache mod_xsendfile](https://tn123.org/mod_xsendfile/)
+            * If the location starts with `file://` then SDTP attempts to open a file at the
+              specified location and stream the contents to the subscriber
+            * If none of the above match then SDTP returns a 302 with the location set to the value
+              of this field
+
+          The `callback` field, if present, is used to make a `POST` request once the file has expired.
+          The request contents of the post will be a JSON document with the following information
+          ```json
+          {
+            'expires': 15780001,
+            'fid':     5,
+            'name':    'goodCallback',
+            'pending': ['1', '2']
+          }
+          ```
+
+          The payload of this request may be compressed with the [gzip](https://datatracker.ietf.org/doc/html/rfc1952)
+          algorithm. A gzip compressed request **must** have the `Content-Encoding` header of the request set to `gzip`.
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/upload-list"
+      responses:
+        '204':
+          $ref: "#/components/responses/NoResponse"
+        '400':
+          $ref: "#/components/responses/BadRequest"
+        '401':
+          $ref: "#/components/responses/Unauthorized"
+        '403':
+          $ref: "#/components/responses/Forbidden"
+        '413':
+          $ref: "#/components/responses/PayloadTooLarge"
+        '415':
+          $ref: "#/components/responses/UnsupportedMediaType"
+  /files/{fileid}:
+    parameters:
+      - $ref: '#/components/parameters/authenticate'
+      - $ref: '#/components/parameters/impersonate'
+      - in: path
+        name: fileid
+        description: Unique numerical ID of file  (For delete can be a range)
+        required: true
+        schema:
+          type: string
+          example: 27
+    get:
+      summary: Retrieve file that is represented by {fileid}
+      tags:
+        - General
+      responses:
+        '200':
+          description: Contents of file
+          content:
+            application/*:
+              schema:
+                type: string
+                format: binary
+        '400':
+          $ref: "#/components/responses/BadRequest"
+        '401':
+          $ref: "#/components/responses/Unauthorized"
+        '403':
+          $ref: "#/components/responses/Forbidden"
+        '404':
+          $ref: "#/components/responses/NotFound"
+        '302':
+          $ref: "#/components/responses/Redirect"
+    delete:
+      summary: Acknowledge receipt of file {fileid}
+      tags:
+        - General
+      responses:
+        '204':
+          $ref: "#/components/responses/NoResponse"
+        '400':
+          $ref: "#/components/responses/BadRequest"
+        '401':
+          $ref: "#/components/responses/Unauthorized"
+        '403':
+          $ref: "#/components/responses/Forbidden"
+        '404':
+          $ref: "#/components/responses/NotFound"
+  /files/{fileid1}-{fileid2}:
+    parameters:
+      - $ref: '#/components/parameters/authenticate'
+      - $ref: '#/components/parameters/impersonate'
+      - in: path
+        name: fileid1
+        description: Unique numerical ID of file  (For delete can be a range)
+        required: true
+        schema:
+          type: string
+          example: 27
+      - in: path
+        name: fileid2
+        description: Unique numerical ID of file  (For delete can be a range)
+        required: true
+        schema:
+          type: string
+          example: 30
+    delete:
+      summary: Acknowledge receipt of a range of files from {fileid1} to {fileid2}
+      tags:
+        - General
+      parameters:
+        - $ref: '#/components/parameters/authenticate'
+        - $ref: '#/components/parameters/impersonate'
+      responses:
+        '204':
+          $ref: "#/components/responses/NoResponse"
+        '400':
+          $ref: "#/components/responses/BadRequest"
+        '401':
+          $ref: "#/components/responses/Unauthorized"
+        '403':
+          $ref: "#/components/responses/Forbidden"
+        '404':
+          $ref: "#/components/responses/NotFound"
+  /register:
+    put:
+      summary: Register with Server to be granted access
+      tags:
+        - General
+      parameters:
+        - $ref: '#/components/parameters/authenticate'
+      responses:
+        '204':
+          $ref: "#/components/responses/NoResponse"
+        '401':
+          $ref: "#/components/responses/Unauthorized"
+        '503':
+          $ref: "#/components/responses/Unavailable"
+    get:
+      summary: List of pending account requests
+      tags:
+        - Admin
+      parameters:
+        - $ref: '#/components/parameters/authenticate'
+        - $ref: '#/components/parameters/impersonate'
+      responses:
+        '200':
+          description: List of usernames pending
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/pendingAccounts"
+          headers:
+            SDTP-TransactionID:
+              $ref: "#/components/headers/SDTP-TransactionID"
+        '400':
+          $ref: "#/components/responses/BadRequest"
+        '401':
+          $ref: "#/components/responses/Unauthorized"
+        '403':
+          $ref: "#/components/responses/Forbidden"
+  /register/{uid}:
+    parameters:
+      - $ref: '#/components/parameters/authenticate'
+      - $ref: '#/components/parameters/impersonate'
+      - in: path
+        name: uid
+        description: Unique numerical ID of user pending registration
+        required: true
+        schema:
+          type: integer
+          example: 27
+    delete:
+      summary: Remove account from pending
+      tags:
+        - Admin
+      parameters:
+        - $ref: '#/components/parameters/authenticate'
+        - $ref: '#/components/parameters/impersonate'
+      responses:
+        '204':
+          $ref: "#/components/responses/NoResponse"
+        '400':
+          $ref: "#/components/responses/BadRequest"
+        '401':
+          $ref: "#/components/responses/Unauthorized"
+        '403':
+          $ref: "#/components/responses/Forbidden"
+    patch:
+      summary: Move a pending account to accepted accounts
+      parameters:
+        - $ref: '#/components/parameters/authenticate'
+        - $ref: '#/components/parameters/impersonate'
+        - in: query
+          name: role
+          schema:
+            type: string
+          description: The role for the account being moved to accepted
+        - in: query
+          name: alias
+          schema:
+            type: string
+          description: An optional alias for the account
+      tags:
+        - Admin
+      responses:
+        '204':
+          $ref: "#/components/responses/NoResponse"
+        '400':
+          $ref: "#/components/responses/BadRequest"
+        '401':
+          $ref: "#/components/responses/Unauthorized"
+        '403':
+          $ref: "#/components/responses/Forbidden"
+  /accounts:
+    get:
+      summary: List all accounts
+      tags:
+        - Admin
+      parameters:
+        - $ref: '#/components/parameters/authenticate'
+        - $ref: '#/components/parameters/impersonate'
+      responses:
+        '200':
+          description: List of usernames and the user's role
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/accountList"
+          headers:
+            SDTP-TransactionID:
+              $ref: "#/components/headers/SDTP-TransactionID"
+        '401':
+          $ref: "#/components/responses/Unauthorized"
+        '403':
+          $ref: "#/components/responses/Forbidden"
+        '400':
+          $ref: "#/components/responses/BadRequest"
+  /accounts/{uid}:
+    parameters:
+      - $ref: '#/components/parameters/authenticate'
+      - $ref: '#/components/parameters/impersonate'
+      - in: path
+        name: uid
+        description: Unique numerical ID of user
+        required: true
+        schema:
+          type: integer
+          example: 27
+    delete:
+      summary: Delete an account
+      tags:
+        - Admin
+      parameters:
+        - $ref: '#/components/parameters/authenticate'
+        - $ref: '#/components/parameters/impersonate'
+        - in: query
+          name: uid
+          schema:
+            type: integer
+          required: true
+          description: Uid of user to delete
+      responses:
+        '204':
+          $ref: "#/components/responses/NoResponse"
+        '401':
+          $ref: "#/components/responses/Unauthorized"
+        '403':
+          $ref: "#/components/responses/Forbidden"
+        '400':
+          $ref: "#/components/responses/BadRequest"
+  /accounts/{uid}/subscriptions:
+    parameters:
+      - $ref: '#/components/parameters/authenticate'
+      - $ref: '#/components/parameters/impersonate'
+      - in: path
+        name: uid
+        description: Unique ID of user
+        required: true
+        schema:
+          type: integer
+          example: 13
+    get:
+      summary: Get subscriptions of user
+      tags:
+        - Admin
+      parameters:
+        - $ref: '#/components/parameters/authenticate'
+        - $ref: '#/components/parameters/impersonate'
+      responses:
+        '200':
+          description: List of subscriptions for user
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/accountSubscriptions"
+          headers:
+            SDTP-TransactionID:
+              $ref: "#/components/headers/SDTP-TransactionID"
+        '401':
+          $ref: "#/components/responses/Unauthorized"
+        '403':
+          $ref: "#/components/responses/Forbidden"
+        '400':
+          $ref: "#/components/responses/BadRequest"
+    put:
+      summary: Create subscription for user
+      tags:
+        - Admin
+      parameters:
+        - $ref: '#/components/parameters/authenticate'
+        - $ref: '#/components/parameters/impersonate'
+        - in: query
+          name: tags
+          description: Subscription restricted to file that meet all provided tags
+          schema:
+            type: object
+            additionalProperties:
+              type: string
+          style: form
+          explode: true
+      responses:
+        '204':
+          $ref: "#/components/responses/NoResponse"
+        '401':
+          $ref: "#/components/responses/Unauthorized"
+        '403':
+          $ref: "#/components/responses/Forbidden"
+        '400':
+          $ref: "#/components/responses/BadRequest"
+        '413':
+          $ref: "#/components/responses/PayloadTooLarge"
+  /accounts/{uid}/subscriptions/{subID}:
+    parameters:
+      - $ref: '#/components/parameters/authenticate'
+      - $ref: '#/components/parameters/impersonate'
+      - in: path
+        name: uid
+        required: true
+        description: User ID of user
+        schema:
+          type: integer
+          example: 11
+      - in: path
+        name: subID
+        schema:
+          type: string
+          format: uuid
+        required: true
+        description: Subscription ID to delete
+    delete:
+      summary: Delete subscription
+      tags:
+        - Admin
+      parameters:
+        - $ref: '#/components/parameters/authenticate'
+        - $ref: '#/components/parameters/impersonate'
+      responses:
+        '204':
+          $ref: "#/components/responses/NoResponse"
+        '401':
+          $ref: "#/components/responses/Unauthorized"
+        '403':
+          $ref: "#/components/responses/Forbidden"
+        '400':
+          $ref: "#/components/responses/BadRequest"
