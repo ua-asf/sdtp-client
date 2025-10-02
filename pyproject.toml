@@ -1,0 +1,18 @@
+[project]
+name = "sdtp-client"
+version = "0.1.0"
+description = "Python client for the NASA SDTP API"
+authors = [{ name = "Matt Perry", email = "mperry37@alaska.edu" }]
+readme = "README.md"
+license = { text = "MIT" }
+requires-python = ">=3.8"
+dependencies = [
+    "requests>=2.25"
+]
+
+[project.scripts]
+sdtp = "sdtp_client.cli:main"
+
+[build-system]
+requires = ["setuptools>=61"]
+build-backend = "setuptools.build_meta"
