@@ -72,5 +72,6 @@ class SDTPClient:
         response = requests.put(
             f"{self.base_url}/register",
             cert=self.cert,
+            verify=False,
         )
         response.raise_for_status()
