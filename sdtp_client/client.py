@@ -76,4 +76,5 @@ class SDTPClient:
             cert=self.cert,
             verify=False,
         )
+        print(response.json())
         response.raise_for_status()
