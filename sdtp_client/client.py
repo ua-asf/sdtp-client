@@ -41,6 +41,7 @@ class SDTPClient:
             f"{self.base_url}/files",
             cert=self.cert,
             params=params,
+            verify=False,
         )
         response.raise_for_status()
         return response.json()
@@ -50,6 +51,7 @@ class SDTPClient:
             f"{self.base_url}/files/{fileid}",
             cert=self.cert,
             stream=True,
+            verify=False,
         )
         response.raise_for_status()
         return response.content
