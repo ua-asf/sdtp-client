@@ -75,16 +75,9 @@ class SDTPClient:
         ) as r:
             r.raise_for_status()
             if self.use_s3:
-                self.s3.upload_fileobj(r.raw, self.s3_bucket, file["name"])
+                self._s3_multipart_upload_with_md5_check(r, file)
             else:
-                with open(f"{file['name']}", "wb") as f:
-                    md5 = hashlib.md5()
-                    for chunk in r.iter_content(chunk_size=8192):
-                        if chunk:
-                            md5.update(chunk)
-                            f.write(chunk)
-                    if md5.hexdigest() != file["checksum"].split(":")[1]:
-                        raise ValueError(f"File {file['name']} is corrupt")
+               self._local_file_download_with_md5_check(r, file)
 
     def delete_file(self, fileid: int) -> None:
         response = requests.delete(
@@ -108,3 +101,84 @@ class SDTPClient:
         )
         print(response)
         response.raise_for_status()
+
+
+    def _parse_checksum(self, checksum_string: str) -> str:
+        try:
+            checksum_type, checksum = checksum_string.split(":")
+        except ValueError:
+            raise RuntimeError(f"Invalid checksum string: {checksum_string}")
+        if checksum_type != "md5":
+            raise RuntimeError(f"Invalid checksum type: {checksum_type}")
+        return checksum
+
+    def _s3_multipart_upload_with_md5_check(self, response: requests.Response, file: dict) -> None:
+        md5 = hashlib.md5()
+        parsed_checksum = self._parse_checksum(file["checksum"])
+        s3_response = self.s3.create_multipart_upload(Bucket=self.s3_bucket, Key=file["name"])
+        upload_id = s3_response["UploadId"]
+        parts = []
+        part_number = 1
+        buffer = b""
+        chunk_size = 8192
+
+        try:
+            for chunk in response.iter_content(chunk_size=chunk_size):
+                if chunk:
+                    buffer += chunk
+                    md5.update(chunk)
+                    if len(buffer) >= chunk_size:
+                        part = self.s3.upload_part(
+                            Body=buffer,
+                            Bucket=self.s3_bucket,
+                            Key=file["name"],
+                            UploadId=upload_id,
+                            PartNumber=part_number,
+                        )
+                        parts.append({
+                            "PartNumber": part_number,
+                            "ETag": part["ETag"],
+                        })
+                        print(f"Uploaded part {part['PartNumber']}, size {len(buffer)}")
+                        part_number += 1
+                        buffer = b""
+            if buffer:
+                part = self.s3.upload_part(
+                    Body=buffer,
+                    Bucket=self.s3_bucket,
+                    Key=file["name"],
+                    UploadId=upload_id,
+                    PartNumber=part_number,
+                )
+                parts.append({
+                    "PartNumber": part_number,
+                    "ETag": part["ETag"],
+                })
+                print(f"Uploaded Final part {part['PartNumber']}, size {len(buffer)}")
+            computed_checksum = md5.hexdigest()
+            print(f"Computed checksum: {computed_checksum}")
+            if computed_checksum != parsed_checksum:
+                raise ValueError(f"Checksum mismatch: {computed_checksum} != {parsed_checksum}")
+            self.s3.complete_multipart_upload(
+                Bucket=self.s3_bucket,
+                Key=file["name"],
+                UploadId=upload_id,
+                MultipartUpload={"Parts": parts},
+            )
+            print("Multipart upload complete")
+        except Exception as e:
+            print(f"Error during upload: {e}")
+            self.s3.abort_multipart_upload(Bucket=self.s3_bucket, Key=file["name"], uploadId=upload_id)
+            raise
+
+    def _local_file_download_with_md5_check(self, response: requests.Response, file: dict) -> None:
+        md5 = hashlib.md5()
+        parsed_checksum = self._parse_checksum(file["checksum"])
+        with open(f"{file['name']}", "wb") as f:
+            for chunk in response.iter_content(chunk_size=8192):
+                if chunk:
+                    md5.update(chunk)
+                    f.write(chunk)
+            computed_checksum = md5.hexdigest()
+            if computed_checksum!= parsed_checksum:
+                raise ValueError(f"Checksum mismatch: {computed_checksum} != {parsed_checksum}")
