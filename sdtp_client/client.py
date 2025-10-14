@@ -2,6 +2,7 @@ import requests
 from typing import Optional, Dict, Any, Tuple, Union
 import boto3
 import os
+import hashlib
 
 class SDTPClient:
     def __init__(
@@ -76,9 +77,13 @@ class SDTPClient:
             if self.use_s3:
                 self.s3.upload_fileobj(r.raw, self.s3_bucket, file["name"])
             with open(f"{file['name']}", "wb") as f:
+                md5 = hashlib.md5()
                 for chunk in r.iter_content(chunk_size=8192):
                     if chunk:
+                        md5.update(chunk)
                         f.write(chunk)
+                if md5.hexdigest() != file["checksum"].split(":"):
+                    raise ValueError(f"File {file['name']} is corrupt")
 
     def delete_file(self, fileid: int) -> None:
         response = requests.delete(
