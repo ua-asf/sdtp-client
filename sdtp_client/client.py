@@ -120,7 +120,7 @@ class SDTPClient:
         parts = []
         part_number = 1
         buffer = b""
-        chunk_size = 8192
+        chunk_size = 8 * 1024 * 1024
 
         try:
             for chunk in response.iter_content(chunk_size=chunk_size):
