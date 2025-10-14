@@ -139,7 +139,7 @@ class SDTPClient:
                             "PartNumber": part_number,
                             "ETag": part["ETag"],
                         })
-                        print(f"Uploaded part {part['PartNumber']}, size {len(buffer)}")
+                        print(f"Uploaded part {part_number}, size {len(buffer)}")
                         part_number += 1
                         buffer = b""
             if buffer:
@@ -154,7 +154,7 @@ class SDTPClient:
                     "PartNumber": part_number,
                     "ETag": part["ETag"],
                 })
-                print(f"Uploaded Final part {part['PartNumber']}, size {len(buffer)}")
+                print(f"Uploaded Final part {part_number}, size {len(buffer)}")
             computed_checksum = md5.hexdigest()
             print(f"Computed checksum: {computed_checksum}")
             if computed_checksum != parsed_checksum:
@@ -168,7 +168,7 @@ class SDTPClient:
             print("Multipart upload complete")
         except Exception as e:
             print(f"Error during upload: {e}")
-            self.s3.abort_multipart_upload(Bucket=self.s3_bucket, Key=file["name"], uploadId=upload_id)
+            self.s3.abort_multipart_upload(Bucket=self.s3_bucket, Key=file["name"], UploadId=upload_id)
             raise
 
     def _local_file_download_with_md5_check(self, response: requests.Response, file: dict) -> None:
