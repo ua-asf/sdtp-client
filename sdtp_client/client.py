@@ -82,7 +82,7 @@ class SDTPClient:
                     if chunk:
                         md5.update(chunk)
                         f.write(chunk)
-                if md5.hexdigest() != file["checksum"].split(":"):
+                if md5.hexdigest() != file["checksum"].split(":")[1]:
                     raise ValueError(f"File {file['name']} is corrupt")
 
     def delete_file(self, fileid: int) -> None:
