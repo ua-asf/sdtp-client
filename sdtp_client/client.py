@@ -1,8 +1,11 @@
-import requests
-from typing import Optional, Dict, Any, Tuple, Union
-import boto3
-import os
 import hashlib
+import os
+
+from typing import Optional, Dict, Any, Tuple, Union
+
+import boto3
+import requests
+
 
 class SDTPClient:
     def __init__(
@@ -20,8 +23,8 @@ class SDTPClient:
 
         :param server: Hostname of the SDTP server (e.g., 'sdtp.example.com')
         :param version: API version (default 'v1')
-        :param cert: Path to client certificate and key, either a tuple (cert, key) or a single .pem file
-        :param use_s3: Boolean indicating to use S3 or just local. If Use s3 ..env needs to be set
+        :param cert: Path to client certificate and key a tuple (cert, key)
+        :param use_s3: Boolean indicating to use S3 or just local. If true .env needs to be set AWS config
         """
         self.base_url = f"https://{server}/sdtp/{version}"
         self.cert = cert
@@ -33,9 +36,13 @@ class SDTPClient:
                 "AWS_DEFAULT_REGION",
                 "S3_BUCKET",
             ]
-            missing_env_vars = [var for var in required_env_vars if not os.environ.get(var)]
+            missing_env_vars = [
+                var for var in required_env_vars if not os.environ.get(var)
+            ]
             if missing_env_vars:
-                raise EnvironmentError(f"Missing environment variables: {', '.join(missing_env_vars)}")
+                raise EnvironmentError(
+                    f"Missing environment variables: {', '.join(missing_env_vars)}"
+                )
             self.s3 = boto3.client("s3")
             self.s3_bucket = os.environ.get("S3_BUCKET")
 
@@ -66,7 +73,7 @@ class SDTPClient:
         response.raise_for_status()
         return response.json()
 
-    def get_file(self, file: dict):
+    def get_file(self, file: dict) -> None:
         with requests.get(
             f"{self.base_url}/files/{file['fileid']}",
             cert=self.cert,
@@ -77,7 +84,7 @@ class SDTPClient:
             if self.use_s3:
                 self._s3_multipart_upload_with_md5_check(r, file)
             else:
-               self._local_file_download_with_md5_check(r, file)
+                self._local_file_download_with_md5_check(r, file)
 
     def delete_file(self, fileid: int) -> None:
         response = requests.delete(
@@ -104,7 +111,6 @@ class SDTPClient:
         print(response)
         response.raise_for_status()
 
-
     def _parse_checksum(self, checksum_string: str) -> str:
         try:
             checksum_type, checksum = checksum_string.split(":")
@@ -114,10 +120,14 @@ class SDTPClient:
             raise RuntimeError(f"Invalid checksum type: {checksum_type}")
         return checksum
 
-    def _s3_multipart_upload_with_md5_check(self, response: requests.Response, file: dict) -> None:
+    def _s3_multipart_upload_with_md5_check(
+        self, response: requests.Response, file: dict
+    ) -> None:
         md5 = hashlib.md5()
         parsed_checksum = self._parse_checksum(file["checksum"])
-        s3_response = self.s3.create_multipart_upload(Bucket=self.s3_bucket, Key=file["name"])
+        s3_response = self.s3.create_multipart_upload(
+            Bucket=self.s3_bucket, Key=file["name"]
+        )
         upload_id = s3_response["UploadId"]
         parts = []
         part_number = 1
@@ -137,10 +147,12 @@ class SDTPClient:
                             UploadId=upload_id,
                             PartNumber=part_number,
                         )
-                        parts.append({
-                            "PartNumber": part_number,
-                            "ETag": part["ETag"],
-                        })
+                        parts.append(
+                            {
+                                "PartNumber": part_number,
+                                "ETag": part["ETag"],
+                            }
+                        )
                         print(f"Uploaded part {part_number}, size {len(buffer)}")
                         part_number += 1
                         buffer = b""
@@ -152,14 +164,18 @@ class SDTPClient:
                     UploadId=upload_id,
                     PartNumber=part_number,
                 )
-                parts.append({
-                    "PartNumber": part_number,
-                    "ETag": part["ETag"],
-                })
+                parts.append(
+                    {
+                        "PartNumber": part_number,
+                        "ETag": part["ETag"],
+                    }
+                )
                 print(f"Uploaded Final part {part_number}, size {len(buffer)}")
             computed_checksum = md5.hexdigest()
             if computed_checksum != parsed_checksum:
-                raise ValueError(f"Checksum mismatch: {computed_checksum} != {parsed_checksum}")
+                raise ValueError(
+                    f"Checksum mismatch: {computed_checksum} != {parsed_checksum}"
+                )
             print(f"Computed checksum: {computed_checksum} matches {parsed_checksum}")
             self.s3.complete_multipart_upload(
                 Bucket=self.s3_bucket,
@@ -170,10 +186,14 @@ class SDTPClient:
             print("Multipart upload complete")
         except Exception as e:
             print(f"Error during upload: {e}")
-            self.s3.abort_multipart_upload(Bucket=self.s3_bucket, Key=file["name"], UploadId=upload_id)
+            self.s3.abort_multipart_upload(
+                Bucket=self.s3_bucket, Key=file["name"], UploadId=upload_id
+            )
             raise
 
-    def _local_file_download_with_md5_check(self, response: requests.Response, file: dict) -> None:
+    def _local_file_download_with_md5_check(
+        self, response: requests.Response, file: dict
+    ) -> None:
         md5 = hashlib.md5()
         parsed_checksum = self._parse_checksum(file["checksum"])
         with open(f"{file['name']}", "wb") as f:
@@ -182,5 +202,7 @@ class SDTPClient:
                     md5.update(chunk)
                     f.write(chunk)
             computed_checksum = md5.hexdigest()
-            if computed_checksum!= parsed_checksum:
-                raise ValueError(f"Checksum mismatch: {computed_checksum} != {parsed_checksum}")
+            if computed_checksum != parsed_checksum:
+                raise ValueError(
+                    f"Checksum mismatch: {computed_checksum} != {parsed_checksum}"
+                )
