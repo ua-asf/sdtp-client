@@ -1,6 +1,7 @@
 import hashlib
 import os
 
+from pathlib import Path
 from typing import Optional, Dict, Any, Tuple, Union
 
 import boto3
@@ -194,9 +195,14 @@ class SDTPClient:
     def _local_file_download_with_md5_check(
         self, response: requests.Response, file: dict
     ) -> None:
+        local_path = os.environ.get("LOCAL_FILE_PATH")
+        if local_path is not None:
+            local_file = Path(local_path) / file["name"]
+        else:
+            local_file = file["name"]
         md5 = hashlib.md5()
         parsed_checksum = self._parse_checksum(file["checksum"])
-        with open(f"{file['name']}", "wb") as f:
+        with open(local_file, "wb") as f:
             for chunk in response.iter_content(chunk_size=8192):
                 if chunk:
                     md5.update(chunk)
