@@ -1,6 +1,7 @@
 import requests
 from typing import Optional, Dict, Any, Tuple, Union
-
+import boto3
+import os
 
 class SDTPClient:
     def __init__(
@@ -8,6 +9,7 @@ class SDTPClient:
         server: str,
         version: str = "v1",
         cert: Union[str, Tuple[str, str]] = ("client.crt", "client.key"),
+        use_s3: bool = False,
     ):
         """
         A simple implementation of the SDTP Client based on the openapi spec
@@ -18,9 +20,26 @@ class SDTPClient:
         :param server: Hostname of the SDTP server (e.g., 'sdtp.example.com')
         :param version: API version (default 'v1')
         :param cert: Path to client certificate and key, either a tuple (cert, key) or a single .pem file
+        :param use_s3: Boolean indicating to use S3 or just local. If Use s3 ..env needs to be set
         """
         self.base_url = f"https://{server}/sdtp/{version}"
         self.cert = cert
+        self.use_s3 = use_s3
+        if use_s3:
+            required_env_vars = [
+                "AWS_ACCESS_KEY_ID",
+                "AWS_SECRET_ACCESS_KEY",
+                "AWS_DEFAULT_REGION",
+                "S3_BUCKET",
+            ]
+            missing_env_vars = [var for var in required_env_vars if not os.environ.get(var)]
+            if missing_env_vars:
+                raise EnvironmentError(f"Missing environment variables: {', '.join(missing_env_vars)}")
+            self.s3 = boto3.client("s3")
+            self.s3_bucket = os.environ.get("S3_BUCKET")
+
+        else:
+            self.local_path = os.environ.get("LOCAL_PATH")
 
     def get_files(
         self,
@@ -46,15 +65,20 @@ class SDTPClient:
         response.raise_for_status()
         return response.json()
 
-    def get_file(self, fileid: int) -> bytes:
-        response = requests.get(
-            f"{self.base_url}/files/{fileid}",
+    def get_file(self, file: dict):
+        with requests.get(
+            f"{self.base_url}/files/{file['fileid']}",
             cert=self.cert,
             stream=True,
             verify=False,
-        )
-        response.raise_for_status()
-        return response.content
+        ) as r:
+            r.raise_for_status()
+            if self.use_s3:
+                self.s3.upload_fileobj(r.raw, self.s3_bucket, file["name"])
+            with open(f"{file['name']}", "wb") as f:
+                for chunk in r.iter_content(chunk_size=8192):
+                    if chunk:
+                        f.write(chunk)
 
     def delete_file(self, fileid: int) -> None:
         response = requests.delete(
