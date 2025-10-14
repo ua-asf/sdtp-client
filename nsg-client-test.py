@@ -5,7 +5,7 @@ load_dotenv()
 
 def main():
     server = "nsguap01.sgw.earthdata.nasa.gov"
-    nsg_client = client.SDTPClient(server=server, version="v1", cert="client.pem")
+    nsg_client = client.SDTPClient(server=server, version="v1", cert=("client.crt", "client.key"))
 
     res = nsg_client.get_files()
     for file in res["files"]:
