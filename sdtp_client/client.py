@@ -83,6 +83,7 @@ class SDTPClient:
         response = requests.delete(
             f"{self.base_url}/files/{fileid}",
             cert=self.cert,
+            verify=False,
         )
         response.raise_for_status()
 
@@ -90,6 +91,7 @@ class SDTPClient:
         response = requests.delete(
             f"{self.base_url}/files/{fileid1}-{fileid2}",
             cert=self.cert,
+            verify=False,
         )
         response.raise_for_status()
 
@@ -156,9 +158,9 @@ class SDTPClient:
                 })
                 print(f"Uploaded Final part {part_number}, size {len(buffer)}")
             computed_checksum = md5.hexdigest()
-            print(f"Computed checksum: {computed_checksum}")
             if computed_checksum != parsed_checksum:
                 raise ValueError(f"Checksum mismatch: {computed_checksum} != {parsed_checksum}")
+            print(f"Computed checksum: {computed_checksum} matches {parsed_checksum}")
             self.s3.complete_multipart_upload(
                 Bucket=self.s3_bucket,
                 Key=file["name"],
