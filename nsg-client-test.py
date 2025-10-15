@@ -1,7 +1,8 @@
-from sdtp_client.client import SDTPClient
 from dotenv import load_dotenv
 
+from sdtp_client.client import SDTPClient
 load_dotenv()
+
 
 def main():
     server = "nsguap01.sgw.earthdata.nasa.gov"
@@ -13,5 +14,5 @@ def main():
     print("All files downloaded")
 
 
-if __name__ == '__main__':
+if __name__ == "__main__":
     main()
