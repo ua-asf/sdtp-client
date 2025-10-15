@@ -1,8 +1,7 @@
 import hashlib
 import os
-
 from pathlib import Path
-from typing import Optional, Dict, Any, Tuple, Union
+from typing import Any, Dict, Optional, Tuple, Union
 
 import boto3
 import requests
@@ -144,7 +143,7 @@ class SDTPClient:
                             {
                                 "PartNumber": part_number,
                                 "ETag": part["ETag"],
-                            }
+                            },
                         )
                         print(f"Uploaded part {part_number}, size {len(buffer)}")
                         part_number += 1
@@ -161,7 +160,7 @@ class SDTPClient:
                     {
                         "PartNumber": part_number,
                         "ETag": part["ETag"],
-                    }
+                    },
                 )
                 print(f"Uploaded Final part {part_number}, size {len(buffer)}")
             computed_checksum = md5.hexdigest()
