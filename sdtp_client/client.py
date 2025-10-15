@@ -52,15 +52,15 @@ class SDTPClient:
 
     def get_files(
         self,
-        maxfile: Optional[int] = None,
-        startfileid: Optional[int] = None,
+        max_file: Optional[int] = None,
+        start_file_id: Optional[int] = None,
         tags: Optional[Dict[str, str]] = None,
     ) -> Dict[str, Any]:
         params = {}
-        if maxfile is not None:
-            params["maxfile"] = maxfile
-        if startfileid is not None:
-            params["startfileid"] = startfileid
+        if max_file is not None:
+            params["max_file"] = max_file
+        if start_file_id is not None:
+            params["start_file_id"] = start_file_id
         if tags:
             for key, value in tags.items():
                 params[f"tags[{key}]"] = value  # tag encoding
@@ -76,7 +76,7 @@ class SDTPClient:
 
     def get_file(self, file: dict) -> None:
         with requests.get(
-            f"{self.base_url}/files/{file['fileid']}",
+            f"{self.base_url}/files/{file['file_id']}",
             cert=self.cert,
             stream=True,
             verify=False,
@@ -87,17 +87,17 @@ class SDTPClient:
             else:
                 self._local_file_download_with_md5_check(r, file)
 
-    def delete_file(self, fileid: int) -> None:
+    def delete_file(self, file_id: int) -> None:
         response = requests.delete(
-            f"{self.base_url}/files/{fileid}",
+            f"{self.base_url}/files/{file_id}",
             cert=self.cert,
             verify=False,
         )
         response.raise_for_status()
 
-    def delete_file_range(self, fileid1: int, fileid2: int) -> None:
+    def delete_file_range(self, file_id1: int, file_id2: int) -> None:
         response = requests.delete(
-            f"{self.base_url}/files/{fileid1}-{fileid2}",
+            f"{self.base_url}/files/{file_id1}-{file_id2}",
             cert=self.cert,
             verify=False,
         )
