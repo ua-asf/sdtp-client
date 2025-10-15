@@ -37,13 +37,9 @@ class SDTPClient:
                 "AWS_DEFAULT_REGION",
                 "S3_BUCKET",
             ]
-            missing_env_vars = [
-                var for var in required_env_vars if not os.environ.get(var)
-            ]
+            missing_env_vars = [var for var in required_env_vars if not os.environ.get(var)]
             if missing_env_vars:
-                raise EnvironmentError(
-                    f"Missing environment variables: {', '.join(missing_env_vars)}"
-                )
+                raise EnvironmentError(f"Missing environment variables: {', '.join(missing_env_vars)}")
             self.s3 = boto3.client("s3")
             self.s3_bucket = os.environ.get("S3_BUCKET")
 
@@ -121,14 +117,10 @@ class SDTPClient:
             raise RuntimeError(f"Invalid checksum type: {checksum_type}")
         return checksum
 
-    def _s3_multipart_upload_with_md5_check(
-        self, response: requests.Response, file: dict
-    ) -> None:
+    def _s3_multipart_upload_with_md5_check(self, response: requests.Response, file: dict) -> None:
         md5 = hashlib.md5()
         parsed_checksum = self._parse_checksum(file["checksum"])
-        s3_response = self.s3.create_multipart_upload(
-            Bucket=self.s3_bucket, Key=file["name"]
-        )
+        s3_response = self.s3.create_multipart_upload(Bucket=self.s3_bucket, Key=file["name"])
         upload_id = s3_response["UploadId"]
         parts = []
         part_number = 1
@@ -174,9 +166,7 @@ class SDTPClient:
                 print(f"Uploaded Final part {part_number}, size {len(buffer)}")
             computed_checksum = md5.hexdigest()
             if computed_checksum != parsed_checksum:
-                raise ValueError(
-                    f"Checksum mismatch: {computed_checksum} != {parsed_checksum}"
-                )
+                raise ValueError(f"Checksum mismatch: {computed_checksum} != {parsed_checksum}")
             print(f"Computed checksum: {computed_checksum} matches {parsed_checksum}")
             self.s3.complete_multipart_upload(
                 Bucket=self.s3_bucket,
@@ -187,14 +177,10 @@ class SDTPClient:
             print("Multipart upload complete")
         except Exception as e:
             print(f"Error during upload: {e}")
-            self.s3.abort_multipart_upload(
-                Bucket=self.s3_bucket, Key=file["name"], UploadId=upload_id
-            )
+            self.s3.abort_multipart_upload(Bucket=self.s3_bucket, Key=file["name"], UploadId=upload_id)
             raise
 
-    def _local_file_download_with_md5_check(
-        self, response: requests.Response, file: dict
-    ) -> None:
+    def _local_file_download_with_md5_check(self, response: requests.Response, file: dict) -> None:
         local_path = os.environ.get("LOCAL_FILE_PATH")
         if local_path is not None:
             local_file = Path(local_path) / file["name"]
@@ -209,6 +195,4 @@ class SDTPClient:
                     f.write(chunk)
             computed_checksum = md5.hexdigest()
             if computed_checksum != parsed_checksum:
-                raise ValueError(
-                    f"Checksum mismatch: {computed_checksum} != {parsed_checksum}"
-                )
+                raise ValueError(f"Checksum mismatch: {computed_checksum} != {parsed_checksum}")

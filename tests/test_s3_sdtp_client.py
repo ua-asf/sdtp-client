@@ -56,9 +56,7 @@ def test_s3_upload_success(test_file_metadata, mock_stream_response, setup_mock_
     assert body == content
 
 
-def test_s3_upload_checksum_mismatch(
-    test_file_metadata, mock_stream_response, setup_mock_s3
-):
+def test_s3_upload_checksum_mismatch(test_file_metadata, mock_stream_response, setup_mock_s3):
     file_meta, _ = test_file_metadata
     file_meta["checksum"] = "md5:00000000000000000000000000000000"  # incorrect
 

@@ -46,9 +46,7 @@ def test_get_files(monkeypatch):
     assert "files" in result
 
 
-def test_local_file_download_with_md5_check(
-    tmp_path, test_file_metadata, mock_response
-):
+def test_local_file_download_with_md5_check(tmp_path, test_file_metadata, mock_response):
     file_meta, content = test_file_metadata
     os.chdir(tmp_path)
 
