@@ -27,7 +27,7 @@ from sdtp_client import SDTPClient
 client = SDTPClient(
     server="sdtp.example.com",
     cert=("client.crt", "client.key"),
-    use_s3=False  # Set to True to use S3 uploads
+    use_s3=False,
 )
 ```
 
