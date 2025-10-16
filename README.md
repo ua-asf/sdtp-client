@@ -22,12 +22,16 @@ Supports listing, downloading, and deleting files — either to **local storage*
 ### 1. Instantiate the Client
 
 ```python
+from boto3
+
 from sdtp_client import SDTPClient
 
 client = SDTPClient(
     server="sdtp.example.com",
     cert=("client.crt", "client.key"),
-    use_s3=False,
+    s3_client = boto3.client("s3"),
+    s3_bucket = "some_cool_bucket",
+    local_path = "some_path/to_local",
 )
 ```
 
@@ -54,28 +58,11 @@ client.get_file(file)
 
 ## S3 Mode (Optional)
 
-To use S3 for file downloads, set `use_s3=True` in your client and define the following environment variables:
-
-### Required S3 Environment Variables
-
-```env
-AWS_ACCESS_KEY_ID=your-access-key
-AWS_SECRET_ACCESS_KEY=your-secret
-AWS_DEFAULT_REGION=us-west-2
-S3_BUCKET=your-bucket-name
-```
-
-You can set these manually, in your shell, or in a `.env` file (if using `python-dotenv`).
-
----
+To use S3 for file downloads, set `s3_client, and s3_bucket` as parameters to the SDTP Client
 
 ## Local Download Mode
 
-In local mode (`use_s3=False`), files are saved to the current working directory.
-
-> Optionally, you can set a `LOCAL_PATH` environment variable
-
----
+Pass the local_path as a parameter to the SDTP Client. If s3_client is set this will be ignored
 
 ## File Integrity Check
 
@@ -92,10 +79,7 @@ If the computed checksum does not match the expected one, the client will raise 
 AWS_ACCESS_KEY_ID=AKIA...
 AWS_SECRET_ACCESS_KEY=...
 AWS_DEFAULT_REGION=us-west-2
-S3_BUCKET=my-sdtp-bucket
 
-# For local mode (optional)
-LOCAL_PATH=/data/downloads
 ```
 
 ---
@@ -112,15 +96,6 @@ cert=("client.crt", "client.key")
 
 ---
 
-## Development & Testing
-
-To install in editable (dev) mode:
-
-```bash
-pip install -e ".[dev]"
-```
-
----
 
 ## File Deletion
 

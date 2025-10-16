@@ -41,16 +41,17 @@ def setup_mock_s3(monkeypatch):
         s3 = boto3.client("s3", region_name=region)
         s3.create_bucket(Bucket=bucket)
 
-        yield s3
+        yield s3, bucket
 
 
 def test_s3_upload_success(test_file_metadata, mock_stream_response, setup_mock_s3):
     file_meta, content = test_file_metadata
+    s3_client, s3_bucket = setup_mock_s3
 
-    client = SDTPClient(server="mockserver", use_s3=True)
+    client = SDTPClient(server="mockserver", s3_client=s3_client, s3_bucket=s3_bucket)
     client._s3_multipart_upload_with_md5_check(mock_stream_response, file_meta)
 
-    result = setup_mock_s3.get_object(Bucket=client.s3_bucket, Key=file_meta["name"])
+    result = s3_client.get_object(Bucket=client.s3_bucket, Key=file_meta["name"])
     body = result["Body"].read()
     assert body == content
 
@@ -58,11 +59,11 @@ def test_s3_upload_success(test_file_metadata, mock_stream_response, setup_mock_
 def test_s3_upload_checksum_mismatch(test_file_metadata, mock_stream_response, setup_mock_s3):
     file_meta, _ = test_file_metadata
     file_meta["checksum"] = "md5:00000000000000000000000000000000"  # incorrect
-
-    client = SDTPClient(server="mockserver", use_s3=True)
+    s3_client, s3_bucket = setup_mock_s3
+    client = SDTPClient(server="mockserver", s3_client=s3_client, s3_bucket=s3_bucket)
 
     with pytest.raises(ValueError, match="Checksum mismatch"):
         client._s3_multipart_upload_with_md5_check(mock_stream_response, file_meta)
 
-    response = setup_mock_s3.list_objects_v2(Bucket=client.s3_bucket)
+    response = s3_client.list_objects_v2(Bucket=client.s3_bucket)
     assert "Contents" not in response or not response["Contents"]

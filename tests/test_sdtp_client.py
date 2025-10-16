@@ -41,7 +41,7 @@ def test_get_files(monkeypatch):
 
     monkeypatch.setattr("requests.get", mock_get)
 
-    client = SDTPClient(server="testserver", use_s3=False)
+    client = SDTPClient(server="testserver")
     result = client.get_files()
     assert isinstance(result, dict)
     assert "files" in result
@@ -51,7 +51,7 @@ def test_local_file_download_with_md5_check(tmp_path, test_file_metadata, mock_r
     file_meta, content = test_file_metadata
     os.chdir(tmp_path)
 
-    client = SDTPClient(server="testserver", use_s3=False)
+    client = SDTPClient(server="testserver")
     client._local_file_download_with_md5_check(mock_response, file_meta)
 
     file_path = tmp_path / file_meta["name"]

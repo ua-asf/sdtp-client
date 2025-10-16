@@ -13,7 +13,9 @@ class SDTPClient:
         server: str,
         version: str = "v1",
         cert: Union[str, Tuple[str, str]] = ("client.crt", "client.key"),
-        use_s3: bool = False,
+        s3_client: Optional[boto3.Session] = None,
+        s3_bucket: Optional[str] = None,
+        local_path: Optional[str] = None,
     ):
         """
         A simple implementation of the SDTP Client based on the openapi spec
@@ -24,26 +26,15 @@ class SDTPClient:
         :param server: Hostname of the SDTP server (e.g., 'sdtp.example.com')
         :param version: API version (default 'v1')
         :param cert: Path to client certificate and key a tuple (cert, key)
-        :param use_s3: Boolean indicating to use S3 or just local. If true .env needs to be set AWS config
+        :param s3_client: Boto3 S3 Client
+        :param s3_bucket: Bucket to place data in S3
+        :param local_path: Local path to save data, ignored if s3_client is set
         """
         self.base_url = f"https://{server}/sdtp/{version}"
         self.cert = cert
-        self.use_s3 = use_s3
-        if use_s3:
-            required_env_vars = [
-                "AWS_ACCESS_KEY_ID",
-                "AWS_SECRET_ACCESS_KEY",
-                "AWS_DEFAULT_REGION",
-                "S3_BUCKET",
-            ]
-            missing_env_vars = [var for var in required_env_vars if not os.environ.get(var)]
-            if missing_env_vars:
-                raise EnvironmentError(f"Missing environment variables: {', '.join(missing_env_vars)}")
-            self.s3 = boto3.client("s3")
-            self.s3_bucket = os.environ.get("S3_BUCKET")
-
-        else:
-            self.local_path = os.environ.get("LOCAL_PATH")
+        self.s3_client = s3_client
+        self.s3_bucket = s3_bucket
+        self.local_path = local_path
 
     def get_files(
         self,
@@ -119,7 +110,7 @@ class SDTPClient:
     def _s3_multipart_upload_with_md5_check(self, response: requests.Response, file: dict) -> None:
         md5 = hashlib.md5()
         parsed_checksum = self._parse_checksum(file["checksum"])
-        s3_response = self.s3.create_multipart_upload(Bucket=self.s3_bucket, Key=file["name"])
+        s3_response = self.s3_client.create_multipart_upload(Bucket=self.s3_bucket, Key=file["name"])
         upload_id = s3_response["UploadId"]
         parts = []
         part_number = 1
@@ -132,7 +123,7 @@ class SDTPClient:
                     buffer += chunk
                     md5.update(chunk)
                     if len(buffer) >= chunk_size:
-                        part = self.s3.upload_part(
+                        part = self.s3_client.upload_part(
                             Body=buffer,
                             Bucket=self.s3_bucket,
                             Key=file["name"],
@@ -149,7 +140,7 @@ class SDTPClient:
                         part_number += 1
                         buffer = b""
             if buffer:
-                part = self.s3.upload_part(
+                part = self.s3_client.upload_part(
                     Body=buffer,
                     Bucket=self.s3_bucket,
                     Key=file["name"],
@@ -167,7 +158,7 @@ class SDTPClient:
             if computed_checksum != parsed_checksum:
                 raise ValueError(f"Checksum mismatch: {computed_checksum} != {parsed_checksum}")
             print(f"Computed checksum: {computed_checksum} matches {parsed_checksum}")
-            self.s3.complete_multipart_upload(
+            self.s3_client.complete_multipart_upload(
                 Bucket=self.s3_bucket,
                 Key=file["name"],
                 UploadId=upload_id,
@@ -176,7 +167,7 @@ class SDTPClient:
             print("Multipart upload complete")
         except Exception as e:
             print(f"Error during upload: {e}")
-            self.s3.abort_multipart_upload(Bucket=self.s3_bucket, Key=file["name"], UploadId=upload_id)
+            self.s3_client.abort_multipart_upload(Bucket=self.s3_bucket, Key=file["name"], UploadId=upload_id)
             raise
 
     def _local_file_download_with_md5_check(self, response: requests.Response, file: dict) -> None:
