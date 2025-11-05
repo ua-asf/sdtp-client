@@ -44,9 +44,9 @@ class SDTPClient:
     ) -> Dict[str, Any]:
         params = {}
         if max_file is not None:
-            params["max_file"] = max_file
+            params["maxfile"] = max_file
         if start_file_id is not None:
-            params["start_file_id"] = start_file_id
+            params["startfileid"] = start_file_id
         if tags:
             for key, value in tags.items():
                 params[f"tags[{key}]"] = value  # tag encoding
