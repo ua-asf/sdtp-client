@@ -68,7 +68,7 @@ class SDTPClient:
             verify=False,
         ) as r:
             r.raise_for_status()
-            if self.use_s3:
+            if self._use_s3():
                 self._s3_multipart_upload_with_md5_check(r, file)
             else:
                 self._local_file_download_with_md5_check(r, file)
@@ -186,3 +186,6 @@ class SDTPClient:
             computed_checksum = md5.hexdigest()
             if computed_checksum != parsed_checksum:
                 raise ValueError(f"Checksum mismatch: {computed_checksum} != {parsed_checksum}")
+
+    def _use_s3(self) -> bool:
+        return self.s3_client is not None and self.s3_bucket is not None
