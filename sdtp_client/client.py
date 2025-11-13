@@ -62,7 +62,7 @@ class SDTPClient:
 
     def get_file(self, file: dict) -> None:
         with requests.get(
-            f"{self.base_url}/files/{file['file_id']}",
+            f"{self.base_url}/files/{file['fileid']}",
             cert=self.cert,
             stream=True,
             verify=False,
