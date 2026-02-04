@@ -16,7 +16,7 @@ class SDTPClient:
         s3_client: Optional[boto3.Session] = None,
         s3_bucket: Optional[str] = None,
         local_path: Optional[str] = None,
-        chunk_size_mb: int = None,
+        chunk_size_mb: Optional[int] = None,
     ):
         """
         A simple implementation of the SDTP Client based on the openapi spec
