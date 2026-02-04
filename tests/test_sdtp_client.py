@@ -64,7 +64,7 @@ def test_sdtp_client_chunk_size_parameter():
     assert client.chunk_size_mb == 8  # Default value
 
     client = SDTPClient(server="testserver", chunk_size_mb=10)
-    assert client.chunk_size_mb == 10 # Set through parameter
+    assert client.chunk_size_mb == 10  # Set through parameter
 
 
 def test_sdtp_client_chunk_size_env_var(monkeypatch):
