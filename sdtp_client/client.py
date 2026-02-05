@@ -37,7 +37,7 @@ class SDTPClient:
         self.s3_client = s3_client
         self.s3_bucket = s3_bucket
         self.local_path = local_path
-        self.chunk_size = chunk_size or int(os.environ.get("SDTP_CHUNK_SIZE", 8*1024*1024))
+        self.chunk_size = chunk_size or int(os.environ.get("SDTP_CHUNK_SIZE", 8 * 1024 * 1024))
 
     def get_files(
         self,
