@@ -30,7 +30,7 @@ class SDTPClient:
         :param s3_client: Boto3 S3 Client
         :param s3_bucket: Bucket to place data in S3
         :param local_path: Local path to save data, ignored if s3_client is set
-        :param chunk_size: Chunk size in bits for multipart uploads to S3. Default=8388608 (8MB)
+        :param chunk_size: Chunk size in bytes for uploading and downloading files. Default=8388608 (8MB)
         """
         self.base_url = f"https://{server}/sdtp/{version}"
         self.cert = cert
