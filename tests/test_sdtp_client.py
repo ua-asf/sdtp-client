@@ -61,16 +61,16 @@ def test_local_file_download_with_md5_check(tmp_path, test_file_metadata, mock_r
 
 def test_sdtp_client_chunk_size_parameter():
     client = SDTPClient(server="testserver")
-    assert client.chunk_size_mb == 8  # Default value
+    assert client.chunk_size == 8*1024*1024  # Default value
 
-    client = SDTPClient(server="testserver", chunk_size_mb=10)
-    assert client.chunk_size_mb == 10  # Set through parameter
+    client = SDTPClient(server="testserver", chunk_size=10*1024*1024)
+    assert client.chunk_size == 10*1024*1024  # Set through parameter
 
 
 def test_sdtp_client_chunk_size_env_var(monkeypatch):
-    monkeypatch.setenv("SDTP_CHUNK_SIZE_MB", "12")
+    monkeypatch.setenv("SDTP_CHUNK_SIZE", "123456")
     client = SDTPClient(server="testserver")
-    assert client.chunk_size_mb == 12  # Set through environment variable
+    assert client.chunk_size == 123456  # Set through environment variable
 
-    client = SDTPClient(server="testserver", chunk_size_mb=14)
-    assert client.chunk_size_mb == 14  # Parameter overrides still
+    client = SDTPClient(server="testserver", chunk_size=14*1024*1024)
+    assert client.chunk_size == 14*1024*1024  # Parameter overrides still

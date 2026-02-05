@@ -16,7 +16,7 @@ class SDTPClient:
         s3_client: Optional[boto3.Session] = None,
         s3_bucket: Optional[str] = None,
         local_path: Optional[str] = None,
-        chunk_size_mb: int = None,
+        chunk_size: int = None,
     ):
         """
         A simple implementation of the SDTP Client based on the openapi spec
@@ -30,14 +30,14 @@ class SDTPClient:
         :param s3_client: Boto3 S3 Client
         :param s3_bucket: Bucket to place data in S3
         :param local_path: Local path to save data, ignored if s3_client is set
-        :param chunk_size_mb: Chunk size in MB for multipart uploads to S3. Default=8
+        :param chunk_size: Chunk size in bits for multipart uploads to S3. Default=8388608 (8MB)
         """
         self.base_url = f"https://{server}/sdtp/{version}"
         self.cert = cert
         self.s3_client = s3_client
         self.s3_bucket = s3_bucket
         self.local_path = local_path
-        self.chunk_size_mb = chunk_size_mb or int(os.environ.get("SDTP_CHUNK_SIZE_MB", 8))
+        self.chunk_size = chunk_size or int(os.environ.get("SDTP_CHUNK_SIZE", 8*1024*1024))
 
     def get_files(
         self,
@@ -118,14 +118,13 @@ class SDTPClient:
         parts = []
         part_number = 1
         buffer = b""
-        chunk_size = self.chunk_size_mb * 1024 * 1024
 
         try:
-            for chunk in response.iter_content(chunk_size=chunk_size):
+            for chunk in response.iter_content(chunk_size=self.chunk_size):
                 if chunk:
                     buffer += chunk
                     md5.update(chunk)
-                    if len(buffer) >= chunk_size:
+                    if len(buffer) >= self.chunk_size:
                         part = self.s3_client.upload_part(
                             Body=buffer,
                             Bucket=self.s3_bucket,
@@ -182,7 +181,7 @@ class SDTPClient:
         md5 = hashlib.md5()
         parsed_checksum = self._parse_checksum(file["checksum"])
         with open(local_file, "wb") as f:
-            for chunk in response.iter_content(chunk_size=8192):
+            for chunk in response.iter_content(chunk_size=self.chunk_size):
                 if chunk:
                     md5.update(chunk)
                     f.write(chunk)
