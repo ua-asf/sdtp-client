@@ -58,7 +58,6 @@ class SDTPClient:
             f"{self.base_url}/files",
             cert=self.cert,
             params=params,
-            verify=False,
         )
         response.raise_for_status()
         return response.json()
@@ -68,7 +67,6 @@ class SDTPClient:
             f"{self.base_url}/files/{file['fileid']}",
             cert=self.cert,
             stream=True,
-            verify=False,
         ) as r:
             r.raise_for_status()
             if self._use_s3():
@@ -80,7 +78,6 @@ class SDTPClient:
         response = requests.delete(
             f"{self.base_url}/files/{file_id}",
             cert=self.cert,
-            verify=False,
         )
         response.raise_for_status()
 
@@ -88,7 +85,6 @@ class SDTPClient:
         response = requests.delete(
             f"{self.base_url}/files/{file_id1}-{file_id2}",
             cert=self.cert,
-            verify=False,
         )
         response.raise_for_status()
 
@@ -96,7 +92,6 @@ class SDTPClient:
         response = requests.put(
             f"{self.base_url}/register",
             cert=self.cert,
-            verify=False,
         )
         print(response)
         response.raise_for_status()
