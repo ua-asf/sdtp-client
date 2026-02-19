@@ -29,7 +29,7 @@ def mock_response(test_file_metadata):
 
 
 def test_get_files(monkeypatch):
-    def mock_get(url, cert, params):
+    def mock_get(self, url, params=None):
         class MockResponse:
             def json(self):
                 return {"files": []}
@@ -39,7 +39,7 @@ def test_get_files(monkeypatch):
 
         return MockResponse()
 
-    monkeypatch.setattr("requests.get", mock_get)
+    monkeypatch.setattr("requests.Session.get", mock_get)
 
     client = SDTPClient(server="testserver")
     result = client.get_files()
