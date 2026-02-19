@@ -92,8 +92,6 @@ The client uses SSL client certificate authentication. Provide a tuple of:
 cert=("client.crt", "client.key")
 ```
 
-> Note: SSL verification is **disabled** (`verify=False`) to support self-signed certs. For production, consider enabling verification or adding proper CA support.
-
 ---
 
 

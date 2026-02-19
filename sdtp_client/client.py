@@ -17,6 +17,7 @@ class SDTPClient:
         s3_bucket: Optional[str] = None,
         local_path: Optional[str] = None,
         chunk_size: Optional[int] = None,
+        verify_ssl: Optional[Union[bool, str]] = True,
     ):
         """
         A simple implementation of the SDTP Client based on the openapi spec
@@ -31,13 +32,16 @@ class SDTPClient:
         :param s3_bucket: Bucket to place data in S3
         :param local_path: Local path to save data, ignored if s3_client is set
         :param chunk_size: Chunk size in bytes for uploading and downloading files. Default=8388608 (8MB)
+        :param verify_ssl: Should verify SSL certificates (Or path to cert to validate with). Default=True
         """
         self.base_url = f"https://{server}/sdtp/{version}"
-        self.cert = cert
         self.s3_client = s3_client
         self.s3_bucket = s3_bucket
         self.local_path = local_path
         self.chunk_size = chunk_size or int(os.environ.get("SDTP_CHUNK_SIZE", 8 * 1024 * 1024))
+        self.session = requests.Session()
+        self.session.cert = cert
+        self.session.verify = verify_ssl
 
     def get_files(
         self,
@@ -54,21 +58,17 @@ class SDTPClient:
             for key, value in tags.items():
                 params[f"tags[{key}]"] = value  # tag encoding
 
-        response = requests.get(
+        response = self.session.get(
             f"{self.base_url}/files",
-            cert=self.cert,
             params=params,
-            verify=False,
         )
         response.raise_for_status()
         return response.json()
 
     def get_file(self, file: dict) -> None:
-        with requests.get(
+        with self.session.get(
             f"{self.base_url}/files/{file['fileid']}",
-            cert=self.cert,
             stream=True,
-            verify=False,
         ) as r:
             r.raise_for_status()
             if self._use_s3():
@@ -77,27 +77,15 @@ class SDTPClient:
                 self._local_file_download_with_md5_check(r, file)
 
     def delete_file(self, file_id: int) -> None:
-        response = requests.delete(
-            f"{self.base_url}/files/{file_id}",
-            cert=self.cert,
-            verify=False,
-        )
+        response = self.session.delete(f"{self.base_url}/files/{file_id}")
         response.raise_for_status()
 
     def delete_file_range(self, file_id1: int, file_id2: int) -> None:
-        response = requests.delete(
-            f"{self.base_url}/files/{file_id1}-{file_id2}",
-            cert=self.cert,
-            verify=False,
-        )
+        response = self.session.delete(f"{self.base_url}/files/{file_id1}-{file_id2}")
         response.raise_for_status()
 
     def register(self) -> None:
-        response = requests.put(
-            f"{self.base_url}/register",
-            cert=self.cert,
-            verify=False,
-        )
+        response = self.session.put(f"{self.base_url}/register")
         print(response)
         response.raise_for_status()
 
